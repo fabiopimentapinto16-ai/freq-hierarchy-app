@@ -120,9 +120,10 @@ class MainActivity : Activity() {
         add(status); add(tipo); add(arvore)
         var contagem = 0
         var ultimo = 0L
+        val suav = Suavizador(0.3)
         listener = CsiUdpListener(aoReceber = { p ->
             ultimo = System.currentTimeMillis(); contagem++
-            val r = HierarchyEngine.integrar(HierarchyEngine.fLocaisDoPacote(p))
+            val r = HierarchyEngine.integrar(suav.atualizar(HierarchyEngine.fLocaisDoPacote(p)))
             val t = HierarchyEngine.tipoRapido(p.movimento, p.respiracao)
             ui.post {
                 if (modo != 1) return@post
@@ -135,7 +136,11 @@ class MainActivity : Activity() {
         val vigia = object : Runnable {
             override fun run() {
                 if (modo != 1) return
-                if (contagem > 0 && System.currentTimeMillis() - ultimo > 5000) status.text = "Sem pacotes há mais de 5 s. Confira o IP e o Wi-Fi do ESP32."
+                if (contagem > 0 && System.currentTimeMillis() - ultimo > 5000) {
+                    status.text = "Sinal perdido: sem pacotes há mais de 5 s. Confira o IP e o Wi-Fi do ESP32."
+                    tipo.text = ""; arvore.removeAllViews()      // não deixa o último valor na tela como se fosse atual
+                    contagem = 0
+                }
                 ui.postDelayed(this, 1000)
             }
         }

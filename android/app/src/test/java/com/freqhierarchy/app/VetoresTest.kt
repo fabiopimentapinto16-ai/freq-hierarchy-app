@@ -57,4 +57,27 @@ class VetoresTest {
         val p = CsiParser.parse("""{"amplitude":2,"confianca":0.5,"movimento":0.1,"respiracao":0.2}""")!!
         assertEquals(1.0, p.amplitude, 0.0)
     }
+
+    @Test fun suavizadorIgualAoPython() {
+        val s = Suavizador(0.5)
+        s.atualizar(listOf(0.0))
+        assertEquals(0.5, s.atualizar(listOf(1.0))[0]!!, 1e-9)
+        val t = Suavizador(0.3)
+        t.atualizar(listOf(0.5, 0.5))
+        assertNull(t.atualizar(listOf(0.5, null))[1])
+        assertEquals(0.9, t.atualizar(listOf(0.5, 0.9))[1]!!, 1e-9)
+    }
+
+    @Test fun persistenciaIdaEVolta() {
+        val e = Consciencia.Estado()
+        Consciencia.checkin(e, 2, true, true, LocalDate.parse("2026-01-01"), "ok")
+        val arq = File.createTempFile("consc", ".json")
+        Consciencia.salvar(e, arq)
+        val r = Consciencia.carregar(arq)
+        assertEquals(1, r.checkins.size)
+        assertEquals("ok", r.checkins[0].nota)
+        assertEquals(e.nivel, r.nivel)
+        arq.delete()
+        assertEquals(1, Consciencia.carregar(File("/nao/existe.json")).nivel)   // arquivo ausente/quebrado nao derruba o app
+    }
 }

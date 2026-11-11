@@ -83,3 +83,21 @@ object HierarchyEngine {
     /** Só o N1 (CSI 2.4 GHz) existe num ESP32. N2..N5 ficam "sem sensor". */
     fun fLocaisDoPacote(p: CsiPacote): List<Double?> = listOf(forca(p.amplitude, p.confianca), null, null, null, null)
 }
+
+/** Espelho de Suavizador (Python): média móvel exponencial por nível; null (sem sensor) continua null. */
+class Suavizador(private val alpha: Double = 0.3) {
+    init { require(alpha > 0.0 && alpha <= 1.0) { "alpha entre 0 (exclusive) e 1" } }
+    private var v: Array<Double?> = emptyArray()
+
+    fun atualizar(f: List<Double?>): List<Double?> {
+        if (v.size != f.size) v = arrayOfNulls(f.size)
+        return f.indices.map { i ->
+            val x = f[i]
+            v[i] = if (x == null) null else {
+                val c = maxOf(0.0, minOf(1.0, x)); val a = v[i]
+                if (a == null) c else a + alpha * (c - a)
+            }
+            v[i]
+        }
+    }
+}

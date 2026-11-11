@@ -22,7 +22,7 @@ Hierarquia de frequências (N1–N5 com herança e regra K8) para **detectar pre
 | N4 | Infravermelho | não ("sem sensor") |
 | N5 | K8 Anomalia | não ("sem sensor") |
 
-Em modo ao vivo, N2–N5 aparecem como **sem sensor**: o valor não é inventado, o nível apenas repete o anterior. Os cenários simulados (modo Técnico) usam os 5 níveis só para demonstrar a lógica e vêm marcados **SIMULADO**.
+No modo ao vivo os valores passam por uma média móvel (`Suavizador`) para a tela não piscar no limiar, e se os pacotes param por mais de 5 s o app mostra "sinal perdido" em vez de manter o último valor. N2–N5 aparecem como **sem sensor**: o valor não é inventado, o nível apenas repete o anterior. Os cenários simulados (modo Técnico) usam os 5 níveis só para demonstrar a lógica e vêm marcados **SIMULADO**.
 
 **Regra K8:** se o K8 local é fraco (< 0.35), ele não puxa a presença para baixo (`F_int = F_anterior`).
 **Anomalia:** K8 forte (≥ 0.35) *discordando* dos níveis de baixo — o anterior está abaixo de 0.30 ou difere do K8 em mais de 0.40.
@@ -52,7 +52,7 @@ python -m unittest discover -s tests -t .
 ### Com ESP32 (CSI ao vivo)
 1. Grave `firmware/esp32_csi_sender/csi_sender_proxy.ino` (veja o README da pasta; **não testado em placa**).
 2. Descubra o IP do celular/PC (o app Android mostra na aba *CSI ao vivo*) e coloque em `IP_CELULAR`. Mesma rede Wi-Fi.
-3. No PC: `python main_csi.py` (porta UDP 5005). No Android: aba **CSI ao vivo**.
+3. No PC: `python main_csi.py --calibrar 25` (porta UDP 5005; nos 25 s iniciais deixe a sala parada para medir o ruído de base). No Android: aba **CSI ao vivo**.
 
 O celular comum **não lê CSI bruto sozinho**: o ESP32 mede e envia por UDP.
 

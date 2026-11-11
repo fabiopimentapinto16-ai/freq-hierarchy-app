@@ -48,3 +48,27 @@ def _status(niveis, f_final) -> str:
         if ant < LIMIAR_PRESENCA or abs(k8.f_local - ant) > DIF_ANOMALIA:
             return "anomalia"
     return "presenca" if f_final >= LIMIAR_PRESENCA else "vazio"
+
+
+class Suavizador:
+    """Media movel exponencial por nivel para o modo ao vivo (evita a tela piscar no limiar).
+    None (sem sensor) continua None: nunca vira numero. Valor novo apos um None comeca do valor medido."""
+
+    def __init__(self, alpha: float = 0.3):
+        if not 0.0 < alpha <= 1.0:
+            raise ValueError("alpha entre 0 (exclusive) e 1")
+        self.alpha = alpha
+        self._v: list = []
+
+    def atualizar(self, f_locais):
+        if len(self._v) != len(f_locais):
+            self._v = [None] * len(f_locais)
+        out = []
+        for i, x in enumerate(f_locais):
+            if x is None:
+                self._v[i] = None
+            else:
+                x = _clip(x)
+                self._v[i] = x if self._v[i] is None else self._v[i] + self.alpha * (x - self._v[i])
+            out.append(self._v[i])
+        return out
