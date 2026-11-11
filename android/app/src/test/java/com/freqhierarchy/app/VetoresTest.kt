@@ -81,3 +81,52 @@ class VetoresTest {
         assertEquals(1, Consciencia.carregar(File("/nao/existe.json")).nivel)   // arquivo ausente/quebrado nao derruba o app
     }
 }
+
+class CameraTest {
+    /** Ruído determinístico (LCG, uniforme com variância 1): o mesmo gerador foi usado para calibrar o limite em Python. */
+    private fun ruido(seed: Long): () -> Double {
+        var x = seed
+        return { x = (x * 1103515245L + 12345L) % 2147483648L; (x / 2147483648.0 - 0.5) * 3.4641 }
+    }
+
+    private fun seno(f: Double, fs: Double, seg: Double, ru: Double, seed: Long): DoubleArray {
+        val g = ruido(seed)
+        return DoubleArray((fs * seg).toInt()) { 100 + Math.sin(2 * Math.PI * f * it / fs) + ru * g() }
+    }
+
+    @Test fun achaRespiracao() {
+        val p = AnaliseCamera.picoNaBanda(seno(0.30, 10.0, 30.0, 0.5, 1), 10.0, 0.1, 0.5)
+        assertEquals(0.30, p.freq, 0.03)
+        assertTrue(p.razao > AnaliseCamera.RAZAO_MIN)
+        assertTrue(AnaliseCamera.clareza(p) > 0.0)
+    }
+
+    @Test fun achaPulso() {
+        val p = AnaliseCamera.picoNaBanda(seno(1.2, 10.0, 30.0, 0.5, 2), 10.0, 0.8, 2.0, 0.05)
+        assertEquals(1.2, p.freq, 0.06)
+    }
+
+    @Test fun soRuidoNaoViraRespiracao() {
+        for (sd in 1L..40L) {
+            val g = ruido(sd)
+            val s = DoubleArray(300) { 100 + g() }
+            assertEquals("semente $sd", 0.0, AnaliseCamera.clareza(AnaliseCamera.picoNaBanda(s, 10.0, 0.1, 0.5)), 0.0)
+        }
+    }
+
+    @Test fun serieCurtaNaoChuta() {
+        assertEquals(0.0, AnaliseCamera.picoNaBanda(DoubleArray(20) { it.toDouble() }, 10.0, 0.1, 0.5).razao, 0.0)
+    }
+
+    @Test fun movimentoEConfianca() {
+        assertEquals(0.0, AnaliseCamera.movimento(0.5), 0.0)
+        assertEquals(1.0, AnaliseCamera.movimento(50.0), 0.0)
+        assertEquals(0.3, AnaliseCamera.confianca(5.0), 0.0)
+        assertEquals(0.0, AnaliseCamera.diferenca(floatArrayOf(1f), floatArrayOf(1f, 2f)), 0.0)
+    }
+
+    @Test fun camaraSoTemN1() {
+        val l = AnaliseCamera.fLocais(0.5, AnaliseCamera.Pico(0.0, 0.0), 120.0)
+        assertTrue(l[0]!! > 0.4); assertNull(l[1]); assertNull(l[4])
+    }
+}

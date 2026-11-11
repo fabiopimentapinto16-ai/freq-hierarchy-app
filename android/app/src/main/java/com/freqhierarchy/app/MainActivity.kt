@@ -21,6 +21,7 @@ class MainActivity : Activity() {
     private var listener: CsiUdpListener? = null
     private val ui = Handler(Looper.getMainLooper())
     private var modo = 0
+    private var camera: CameraSource? = null
 
     private val cenarios = linkedMapOf(
         "vazio" to listOf(0.05, 0.04, 0.03, 0.03, 0.02),
@@ -39,7 +40,7 @@ class MainActivity : Activity() {
         estado = Consciencia.carregar(arqEstado)
         val raiz = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val abas = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Técnico", "CSI ao vivo", "Consciência").forEachIndexed { i, nome ->
+        listOf("Técnico", "CSI", "Câmera", "Consciência").forEachIndexed { i, nome ->
             abas.addView(Button(this).apply {
                 text = nome; isAllCaps = false
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -53,15 +54,16 @@ class MainActivity : Activity() {
         abrir(0)
     }
 
-    override fun onDestroy() { listener?.parar(); super.onDestroy() }
+    override fun onDestroy() { listener?.parar(); camera?.parar(); super.onDestroy() }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     private fun abrir(m: Int) {
         if (m != 1) { listener?.parar(); listener = null }
+        if (m != 2) { camera?.parar(); camera = null }
         modo = m
         corpo.removeAllViews()
-        when (m) { 0 -> telaTecnica(); 1 -> telaAoVivo(); else -> telaConsciencia() }
+        when (m) { 0 -> telaTecnica(); 1 -> telaAoVivo(); 2 -> telaCamera(); else -> telaConsciencia() }
     }
 
     private fun texto(t: String, tam: Float = 15f, negrito: Boolean = false, cor: Int = Color.parseColor("#222222")) =
@@ -147,6 +149,73 @@ class MainActivity : Activity() {
         ui.postDelayed(vigia, 1000)
     }
 
+
+    // ---------------- modo Câmera (luz visível; números apenas, sem mostrar nem guardar imagem)
+    private val serieLuma = ArrayList<Double>()
+    private val serieTempo = ArrayList<Double>()
+    private var gradeAnterior: FloatArray? = null
+    private var movSuave = 0.0
+    private val suavCamera = Suavizador(0.3)
+
+    private fun telaCamera() {
+        add(texto("Câmera (movimento e variações de brilho)", 18f, true))
+        add(texto("Usa a câmera só para calcular números. A imagem não é mostrada, gravada nem enviada. A câmera comum vê luz visível: " +
+            "não lê infravermelho térmico nem micro-ondas (N2–N5 ficam \"sem sensor\"). Respiração e pulso são ESTIMATIVAS e precisam de " +
+            "alguém parado diante da câmera, com boa luz, por cerca de 20 s.", 13f, cor = Color.DKGRAY))
+        val status = texto("Toque em Iniciar.", 14f)
+        val leitura = texto("", 15f, true)
+        val arvore = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        add(Button(this).apply {
+            text = "Iniciar câmera"; isAllCaps = false
+            setOnClickListener { iniciarCamera(status, leitura, arvore) }
+        })
+        add(status); add(leitura); add(arvore)
+    }
+
+    private fun iniciarCamera(status: TextView, leitura: TextView, arvore: LinearLayout) {
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            status.text = "Preciso da permissão da câmera. Aceite e toque em Iniciar de novo."
+            requestPermissions(arrayOf(android.Manifest.permission.CAMERA), 10)
+            return
+        }
+        camera?.parar()
+        serieLuma.clear(); serieTempo.clear(); gradeAnterior = null; movSuave = 0.0
+        status.text = "Câmera ligada. Juntando dados…"
+        camera = CameraSource(this, aoQuadro = { grade, t ->
+            val ant = gradeAnterior
+            gradeAnterior = grade
+            val luma = grade.average()
+            val mov = if (ant != null) AnaliseCamera.movimento(AnaliseCamera.diferenca(ant, grade)) else 0.0
+            serieLuma.add(luma); serieTempo.add(t)
+            while (serieTempo.size > 2 && t - serieTempo[0] > 30.0) { serieLuma.removeAt(0); serieTempo.removeAt(0) }
+            movSuave += 0.3 * (mov - movSuave)
+            var resp = AnaliseCamera.Pico(0.0, 0.0); var pulso = AnaliseCamera.Pico(0.0, 0.0)
+            val dur = serieTempo.last() - serieTempo.first()
+            if (dur >= 10.0) {
+                val fs = (serieTempo.size - 1) / dur
+                val x = serieLuma.toDoubleArray()
+                resp = AnaliseCamera.picoNaBanda(x, fs, 0.1, 0.5)
+                pulso = AnaliseCamera.picoNaBanda(x, fs, 0.8, 2.0, 0.05)
+            }
+            val r = HierarchyEngine.integrar(suavCamera.atualizar(AnaliseCamera.fLocais(movSuave, resp, luma)))
+            ui.post {
+                if (modo != 2) return@post
+                status.text = "Câmera ativa | brilho %.0f | janela %.0f s".format(luma, dur)
+                val respTxt = if (AnaliseCamera.clareza(resp) > 0) "%.0f resp/min (estimativa)".format(resp.freq * 60) else "sem oscilação clara"
+                val pulsoTxt = if (AnaliseCamera.clareza(pulso) > 0) "%.0f bpm (estimativa)".format(pulso.freq * 60) else "sem oscilação clara"
+                leitura.text = "Movimento %.2f\nRespiração: $respTxt\nPulso: $pulsoTxt".format(movSuave)
+                desenharArvore(arvore, r)
+            }
+        }, aoErro = { msg -> ui.post { status.text = "Erro da câmera: $msg" } }).also { it.iniciar() }
+    }
+
+    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        super.onRequestPermissionsResult(code, perms, res)
+        if (code == 10 && modo == 2) abrir(2)
+    }
+
+    override fun onPause() { super.onPause(); camera?.parar(); camera = null }
+
     // ---------------- modo Consciência
     private fun telaConsciencia() {
         val info = Consciencia.NIVEIS[estado.nivel - 1]
@@ -179,7 +248,7 @@ class MainActivity : Activity() {
             setOnClickListener {
                 val r = Consciencia.checkin(estado, barra.progress + 1, pausou.isChecked, pratica.isChecked, LocalDate.now(), nota.text.toString())
                 Consciencia.salvar(estado, arqEstado)
-                abrir(2)
+                abrir(3)
                 toast(r.mensagem)
             }
         }
@@ -197,7 +266,7 @@ class MainActivity : Activity() {
                 try {
                     Consciencia.ajustarNivel(estado, sel.selectedItemPosition + 1)
                     Consciencia.salvar(estado, arqEstado)
-                    abrir(2); toast("Nível atualizado.")
+                    abrir(3); toast("Nível atualizado.")
                 } catch (e: IllegalArgumentException) { toast(e.message ?: "Não foi possível ajustar.") }
             }
         })

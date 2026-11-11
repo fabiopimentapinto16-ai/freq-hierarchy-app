@@ -57,11 +57,14 @@ python -m unittest discover -s tests -t .
 O celular comum **não lê CSI bruto sozinho**: o ESP32 mede e envia por UDP.
 
 ### Android
-Projeto Kotlin em `android/` (`com.freqhierarchy.app`, minSdk 26, targetSdk 34). Modos: **Técnico**, **CSI ao vivo**, **Consciência**. O APK é gerado pelo GitHub Actions (*Build APK*, artefato `freq-hierarchy-apk`).
+Projeto Kotlin em `android/` (`com.freqhierarchy.app`, minSdk 26, targetSdk 34). Modos: **Técnico**, **CSI**, **Câmera**, **Consciência**. O APK é gerado pelo GitHub Actions (*Build APK*, artefato `freq-hierarchy-apk`).
+
+### Modo Câmera (Android)
+Usa a câmera do celular só para calcular números: movimento (diferença entre quadros) e variações lentas de brilho, de onde saem estimativas de respiração (0,1–0,5 Hz) e pulso (0,8–2 Hz). A imagem não é mostrada, gravada nem enviada. A câmera comum vê **luz visível**: não lê infravermelho térmico nem micro-ondas, então N2–N5 seguem "sem sensor". Respiração e pulso são estimativas e exigem pessoa parada, boa luz e ~20 s. O limite de "oscilação clara" foi calibrado com ruído sintético (ruído puro fica abaixo; o teste cobre 40 sementes), não com pessoas reais.
 
 ## Testes e o que foi (ou não) verificado
 
 - **Python:** testes unitários (`tests/`), incluindo vetores compartilhados. Rodados.
 - **Kotlin ↔ Python:** `vetores/hierarquia.json` e `vetores/consciencia.json` são lidos pelos dois lados (`tests/test_vetores.py` e `android/app/src/test/.../VetoresTest.kt`), para dar o mesmo resultado. O Kotlin só é compilado/testado no GitHub Actions.
 - **Firmware ESP32:** não testado em placa.
-- **Interface Android:** não testada em aparelho.
+- **Interface Android e câmera:** não testadas em aparelho (a matemática da câmera tem testes unitários; o acesso à câmera só compila no CI).
