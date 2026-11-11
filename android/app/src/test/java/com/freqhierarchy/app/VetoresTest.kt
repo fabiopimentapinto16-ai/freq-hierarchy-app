@@ -9,7 +9,7 @@ import org.junit.Test
 import java.io.File
 import java.time.LocalDate
 
-/** Lê os MESMOS vetores do Python (vetores/*.json): Kotlin e Python têm que dar o mesmo resultado. */
+/** Lê os MESMOS vetores do Python (arquivos .json da pasta vetores): Kotlin e Python têm que dar o mesmo resultado. */
 class VetoresTest {
     private fun ler(nome: String) = JSONArray(File(System.getProperty("vetores.dir"), nome).readText(Charsets.UTF_8))
 
