@@ -6,7 +6,9 @@ import unittest
 from datetime import date
 
 from app.core import consciencia as c
+from app.core import fusao as fu
 from app.core.hierarquia import integrar
+from config.pesos import NIVEIS_TELEFONE
 
 RAIZ = os.path.join(os.path.dirname(__file__), "..", "vetores")
 
@@ -30,8 +32,35 @@ class TestVetores(unittest.TestCase):
         for v in _ler("consciencia.json"):
             r = c.checkin(e, v["reacao"], v["pausou"], v["pratica"], date.fromisoformat(v["data"]))
             self.assertEqual(e.nivel, v["nivel_depois"], v["data"])
-            self.assertEqual(r["subiu"], v["subiu"], v["data"])
+            self.assertEqual(r["pode_subir"], v["pode_subir"], v["data"])
             self.assertAlmostEqual(r["score"], v["score"], 3, v["data"])
+        c.ajustar_nivel(e, 2, date(2026, 1, 10))      # confirmacao do usuario
+        self.assertEqual(e.nivel, 2)
+
+    def test_flow(self):
+        for v in _ler("flow.json"):
+            r = c.registrar_flow(c.Estado(), v["minutos"], v["pratica"], v["absorcao"], date(2026, 1, 1))
+            self.assertEqual(r["registro"]["minutos"], v["minutos_reg"])
+            self.assertEqual(r["registro"]["absorcao"], v["absorcao_reg"])
+            self.assertEqual(r["registro"]["boa_absorcao"], v["boa_absorcao"])
+            self.assertEqual(r["mensagem"], v["mensagem"])
+
+    def test_fusao(self):
+        v = _ler("fusao.json")
+        for x in v["tipo_sinal"]:
+            self.assertEqual(fu.tipo_sinal(x["mov"], x["resp"]), x["esperado"])
+        for x in v["k8"]:
+            self.assertEqual(fu.k8_local(x["mov"], x["base"], x["imu"]), x["esperado"])
+        for x in v["f_locais"]:
+            self.assertEqual(fu.f_locais_telefone(x["cam_amp"], x["cam_conf"], x["imu"], x["rssi_desvio"], x["mov"], x["mov_base"]), x["esperado"])
+        for x in v["status"]:
+            self.assertEqual(fu.status_telefone(x["status"], x["imu"]), x["esperado"])
+        for x in v["cor"]:
+            self.assertEqual(list(fu.cor_fusao(x["f"], x["status"], x["tipo"])), x["esperado"])
+        for x in v["hierarquia_telefone"]:
+            r = integrar(x["f_locais"], niveis=NIVEIS_TELEFONE)
+            self.assertEqual(r.status, x["status"])
+            self.assertAlmostEqual(r.f_final, x["f_final"], 4)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,12 @@ def dia(i):
 
 
 class TestConsciencia(unittest.TestCase):
+    def test_portais(self):
+        self.assertEqual([c.info_nivel(n)["portal"] for n in range(1, 8)],
+                         ["Portal da Pausa", "Portal do Nomear", "Portal da Testemunha", "Portal da Escolha",
+                          "Portal do Meu", "Portal do Alinhar", "Portal do Serviço"])
+        self.assertEqual(c.info_nivel(7)["nome"], "Sabedoria")
+
     def test_sete_niveis_com_pratica(self):
         self.assertEqual(len(c.NIVEIS), 7)
         for n in range(1, 8):
@@ -23,24 +29,26 @@ class TestConsciencia(unittest.TestCase):
         self.assertEqual(c.score_do_dia(1, True, True), 1.0)
         self.assertEqual(c.score_do_dia(5, False, False), 0.0)
 
-    def test_nao_sobe_sem_praticas(self):
+    def test_nao_sugere_subir_sem_praticas(self):
         e = c.Estado()
         for i in range(10):                      # 10 dias bons, mas sem fazer a microprática
             r = c.checkin(e, 1, True, False, hoje=dia(i))
         self.assertEqual(e.nivel, 1)
-        self.assertFalse(r["subiu"])
+        self.assertFalse(r["pode_subir"])
 
-    def test_sobe_com_pratica_e_consistencia(self):
+    def test_nunca_sobe_sozinho_so_sugere(self):
         e = c.Estado()
-        subiu_em = None
+        sugeriu_em = None
         for i in range(10):
             r = c.checkin(e, 2, True, True, hoje=dia(i))
-            if r["subiu"]:
-                subiu_em = i
-                break
-        self.assertEqual(subiu_em, 6)            # 7 praticas em 7 dias seguidos
+            if r["pode_subir"] and sugeriu_em is None:
+                sugeriu_em = i
+        self.assertEqual(sugeriu_em, 4)          # 5 de 7 dias com a prática e média alta
+        self.assertEqual(e.nivel, 1)             # continua no 1 até a pessoa confirmar
+        self.assertIn("Confirme", r["mensagem"])
+        c.ajustar_nivel(e, 2, dia(9))            # confirmação do usuário
         self.assertEqual(e.nivel, 2)
-        self.assertEqual(c.metricas(e, dia(6))["progresso"], 0.0)   # novo nivel recomeca
+        self.assertEqual(c.metricas(e, dia(9))["progresso"], 0.0)   # novo nível recomeça
 
     def test_faltar_um_dia_nao_zera(self):
         e = c.Estado()
@@ -48,6 +56,7 @@ class TestConsciencia(unittest.TestCase):
             c.checkin(e, 2, True, True, hoje=dia(i))
         m = c.metricas(e, dia(5))
         self.assertEqual(m["praticas"], 5)
+        self.assertEqual(m["dias_pratica7"], 5)
         self.assertGreater(m["progresso"], 0)
         self.assertEqual(c.sequencia(e, dia(5)), 2)
 
@@ -66,6 +75,7 @@ class TestConsciencia(unittest.TestCase):
             r = c.checkin(e, 1, True, True, hoje=dia(i))
         self.assertEqual(e.nivel, 7)
         self.assertEqual(r["mensagem"], "Nível máximo: mantenha a prática.")
+        self.assertFalse(r["pode_subir"])
 
     def test_um_checkin_por_dia(self):
         e = c.Estado()

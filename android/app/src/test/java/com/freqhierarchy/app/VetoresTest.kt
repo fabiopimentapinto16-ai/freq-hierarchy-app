@@ -37,9 +37,98 @@ class VetoresTest {
             val r = Consciencia.checkin(e, v.getInt("reacao"), v.getBoolean("pausou"), v.getBoolean("pratica"), LocalDate.parse(v.getString("data")))
             val d = v.getString("data")
             assertEquals(d, v.getInt("nivel_depois"), e.nivel)
-            assertEquals(d, v.getBoolean("subiu"), r.subiu)
+            assertEquals(d, v.getBoolean("pode_subir"), r.podeSubir)
             assertEquals(d, v.getDouble("score"), r.score, 1e-3)
         }
+        Consciencia.ajustarNivel(e, 2, LocalDate.parse("2026-01-10"))      // confirmação do usuário
+        assertEquals(2, e.nivel)
+    }
+
+    @Test fun flowIgualAoPython() {
+        val arr = ler("flow.json")
+        for (i in 0 until arr.length()) {
+            val v = arr.getJSONObject(i)
+            val r = Consciencia.registrarFlow(Consciencia.Estado(), v.getInt("minutos"), v.getBoolean("pratica"), v.getInt("absorcao"), LocalDate.parse("2026-01-01"))
+            assertEquals(v.getInt("minutos_reg"), r.registro.minutos)
+            assertEquals(v.getInt("absorcao_reg"), r.registro.absorcao)
+            assertEquals(v.getBoolean("boa_absorcao"), r.registro.boaAbsorcao)
+            assertEquals(v.getString("mensagem"), r.mensagem)
+        }
+    }
+
+    private fun lerObj(nome: String) = org.json.JSONObject(File(System.getProperty("vetores.dir"), nome).readText(Charsets.UTF_8))
+    private fun dn(a: JSONArray, i: Int): Double? = if (a.isNull(i)) null else a.getDouble(i)
+
+    @Test fun fusaoIgualAoPython() {
+        val v = lerObj("fusao.json")
+        var a = v.getJSONArray("tipo_sinal")
+        for (i in 0 until a.length()) { val x = a.getJSONObject(i); assertEquals(x.getString("esperado"), Fusao.tipoSinal(x.getDouble("mov"), x.getBoolean("resp"))) }
+        a = v.getJSONArray("k8")
+        for (i in 0 until a.length()) {
+            val x = a.getJSONObject(i)
+            val esp = if (x.isNull("esperado")) null else x.getDouble("esperado")
+            val got = Fusao.k8Local(x.getDouble("mov"), x.getDouble("base"), x.getDouble("imu"))
+            if (esp == null) assertNull(got) else assertEquals(esp, got!!, 1e-3)
+        }
+        a = v.getJSONArray("f_locais")
+        for (i in 0 until a.length()) {
+            val x = a.getJSONObject(i)
+            val rs = if (x.isNull("rssi_desvio")) null else x.getDouble("rssi_desvio")
+            val got = Fusao.fLocaisTelefone(x.getDouble("cam_amp"), x.getDouble("cam_conf"), x.getDouble("imu"), rs, x.getDouble("mov"), x.getDouble("mov_base"))
+            val esp = x.getJSONArray("esperado")
+            for (k in 0 until 5) {
+                val e = dn(esp, k)
+                if (e == null) assertNull("caso $i N${k + 1}", got[k]) else assertEquals("caso $i N${k + 1}", e, got[k]!!, 1e-3)
+            }
+        }
+        a = v.getJSONArray("status")
+        for (i in 0 until a.length()) { val x = a.getJSONObject(i); assertEquals(x.getString("esperado"), Fusao.statusTelefone(x.getString("status"), x.getDouble("imu"))) }
+        a = v.getJSONArray("cor")
+        for (i in 0 until a.length()) {
+            val x = a.getJSONObject(i)
+            val esp = x.getJSONArray("esperado")
+            val got = Fusao.corFusao(x.getDouble("f"), x.getString("status"), x.getString("tipo"))
+            for (k in 0 until 4) assertEquals("cor $i[$k]", esp.getInt(k), got[k])
+        }
+        a = v.getJSONArray("hierarquia_telefone")
+        for (i in 0 until a.length()) {
+            val x = a.getJSONObject(i)
+            val fl = x.getJSONArray("f_locais")
+            val r = HierarchyEngine.integrar((0 until fl.length()).map { dn(fl, it) }, niveis = Pesos.NIVEIS_TELEFONE)
+            assertEquals(x.getString("status"), r.status)
+            assertEquals(x.getDouble("f_final"), r.fFinal, 1e-3)
+        }
+    }
+
+    @Test fun portaisEFlowSemExageros() {
+        assertEquals("Portal da Pausa", Consciencia.NIVEIS[0].portal)
+        assertEquals("Sabedoria", Consciencia.NIVEIS[6].nome)
+        assertEquals(5, Consciencia.FLOW_CONDICOES.size)
+        assertTrue(!Consciencia.registrarFlow(Consciencia.Estado(), 10, true, 5).mensagem.lowercase().contains("entrou em flow"))
+    }
+
+    @Test fun memoriaDescontaEPersiste() {
+        val arq = File.createTempFile("mem", ".json")
+        val m = MemoriaSensor(arq)
+        assertTrue(!m.registrar(MemoriaSensor.Sessao("2026-01-01", "ESTIMADO", 10, 0.1, 0.1, 100.0)))   // curta demais
+        assertTrue(m.registrar(MemoriaSensor.Sessao("2026-01-01", "ESTIMADO", 60, 0.1, 0.1, 100.0)))
+        assertEquals(0.1, m.baselineMov, 1e-9)
+        assertEquals(0.0, m.descontar(0.05), 1e-9)
+        assertEquals(0.4, m.descontar(0.5), 1e-9)
+        m.salvar()
+        val m2 = MemoriaSensor(arq).carregar()
+        assertEquals(1, m2.sessoes.size)
+        assertEquals(0.1, m2.baselineMov, 1e-9)
+        arq.delete()
+        assertEquals(0.0, MemoriaSensor(File("/nao/existe/x.json")).carregar().baselineMov, 0.0)
+    }
+
+    @Test fun sensoresMatematica() {
+        assertEquals(0.0, SensoresTelefone.movimentoDoAparelho(0.1), 0.0)
+        assertEquals(1.0, SensoresTelefone.movimentoDoAparelho(5.0), 0.0)
+        assertNull(SensoresTelefone.desvio(listOf(-50.0, -51.0)))
+        assertEquals(0.0, SensoresTelefone.desvio(List(10) { -50.0 })!!, 1e-9)
+        assertTrue(SensoresTelefone.desvio(listOf(-50.0, -60.0, -50.0, -60.0, -50.0))!! > 4.0)
     }
 
     @Test fun semSensorNaoInventa() {
@@ -128,5 +217,19 @@ class CameraTest {
     @Test fun camaraSoTemN1() {
         val l = AnaliseCamera.fLocais(0.5, AnaliseCamera.Pico(0.0, 0.0), 120.0)
         assertTrue(l[0]!! > 0.4); assertNull(l[1]); assertNull(l[4])
+    }
+
+    @Test fun vetoresDaCameraIguaisAoPython() {
+        val arr = JSONArray(File(System.getProperty("vetores.dir"), "camera.json").readText(Charsets.UTF_8))
+        for (i in 0 until arr.length()) {
+            val v = arr.getJSONObject(i)
+            val g = ruido(v.getLong("seed"))
+            val f = if (v.isNull("f")) null else v.getDouble("f")
+            val ru = v.getDouble("ruido")
+            val serie = DoubleArray(300) { 100 + (if (f != null) Math.sin(2 * Math.PI * f * it / 10.0) else 0.0) + ru * g() }
+            val p = AnaliseCamera.picoNaBanda(serie, 10.0, v.getDouble("lo"), v.getDouble("hi"), v.getDouble("passo"))
+            assertEquals("freq $i", v.getDouble("freq"), p.freq, 1e-3)
+            assertEquals("razao $i", v.getDouble("razao"), p.razao, maxOf(0.01, v.getDouble("razao") * 1e-3))
+        }
     }
 }

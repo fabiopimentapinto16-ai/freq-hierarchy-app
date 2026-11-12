@@ -13,28 +13,31 @@ object Consciencia {
     const val PRIVACIDADE = "Seus dados ficam só neste aparelho. Nada é enviado."
     const val PERGUNTA = "Como você está por dentro agora?"
     const val NIVEL_MAX = 7
-    const val PRATICAS_PARA_SUBIR = 7
-    const val DIAS_PARA_SUBIR = 5
+    const val AVISO_PORTAIS = "Portais são práticas de consciência, não magia de rede."
+    const val AVISO_ATENCAO = "Atenção visual é treino. Não lemos pensamentos."
+    const val DIAS_PARA_SUBIR = 5          // dias COM A PRÁTICA do nível nos últimos 7
     const val MEDIA_PARA_SUBIR = 0.6
 
-    data class Info(val n: Int, val nome: String, val descricao: String, val pratica: String)
+    data class Info(val n: Int, val nome: String, val descricao: String, val pratica: String, val portal: String)
 
     val NIVEIS = listOf(
-        Info(1, "Reação", "Vive no automático; pouco registra emoção ou gatilho.", "3 vezes ao dia, pare 10 segundos e nomeie: o que estou sentindo?"),
-        Info(2, "Percepção", "Começa a notar a emoção e o gatilho depois do fato.", "Diário de 1 linha: gatilho → emoção."),
-        Info(3, "Observação", "Observa o padrão sem se fundir totalmente nele.", "Pausa de 30 segundos antes de responder em um conflito."),
-        Info(4, "Escolha", "Consegue escolher a resposta em vez de só reagir.", "1 escolha consciente por dia (registre qual)."),
-        Info(5, "Responsabilidade", "Assume a parte que é sua; menos culpa só no externo.", "Em 1 situação do dia, pergunte: o que é meu aqui?"),
-        Info(6, "Coerência", "Pensamento, fala e ação mais alinhados.", "1 ato alinhado ao seu valor principal do dia."),
-        Info(7, "Clareza e serviço", "Mais estável; usa a consciência para o bem próprio e do outro.", "1 ação útil e discreta por dia + revisão semanal."),
+        Info(1, "Reação", "Vive no automático; pouco registra emoção ou gatilho.", "3 vezes ao dia, pare 10 segundos e nomeie: o que estou sentindo?", "Portal da Pausa"),
+        Info(2, "Percepção", "Começa a notar a emoção e o gatilho depois do fato.", "Diário de 1 linha: gatilho → emoção.", "Portal do Nomear"),
+        Info(3, "Observação", "Observa o padrão sem se fundir totalmente nele.", "Pausa de 30 segundos antes de responder em um conflito.", "Portal da Testemunha"),
+        Info(4, "Escolha", "Consegue escolher a resposta em vez de só reagir.", "1 escolha consciente por dia (registre qual).", "Portal da Escolha"),
+        Info(5, "Responsabilidade", "Assume a parte que é sua; menos culpa só no externo.", "Em 1 situação do dia, pergunte: o que é meu aqui?", "Portal do Meu"),
+        Info(6, "Coerência", "Pensamento, fala e ação mais alinhados.", "1 ato alinhado ao seu valor principal do dia.", "Portal do Alinhar"),
+        Info(7, "Sabedoria", "Mais estável; usa a consciência para o bem próprio e do outro.", "1 ação útil e discreta por dia + revisão semanal (manutenção, não um fim).", "Portal do Serviço"),
     )
 
     data class Checkin(val data: String, val reacao: Int, val pausou: Boolean, val pratica: Boolean, val nivel: Int, val score: Double, val nota: String = "")
 
-    class Estado(var nivel: Int = 1, var entradaNivel: String = "", var checkins: MutableList<Checkin> = mutableListOf())
+    data class Flow(val data: String, val nivel: Int, val minutos: Int, val pratica: Boolean, val absorcao: Int, val tarefa: String, val boaAbsorcao: Boolean)
 
-    data class Metricas(val praticas: Int, val dias7: Int, val media7: Double, val progresso: Double, val podeSubir: Boolean)
-    data class Resposta(val score: Double, val subiu: Boolean, val nivel: Int, val metricas: Metricas, val mensagem: String)
+    class Estado(var nivel: Int = 1, var entradaNivel: String = "", var checkins: MutableList<Checkin> = mutableListOf(), var flows: MutableList<Flow> = mutableListOf())
+
+    data class Metricas(val praticas: Int, val dias7: Int, val diasPratica7: Int, val media7: Double, val progresso: Double, val podeSubir: Boolean)
+    data class Resposta(val score: Double, val podeSubir: Boolean, val nivel: Int, val metricas: Metricas, val mensagem: String)
 
     private fun r3(x: Double) = Math.round(x * 1000.0) / 1000.0
 
@@ -51,10 +54,11 @@ object Consciencia {
         val u7 = lst.filter { it.data >= ini && it.data <= hoje.toString() }
         val praticas = lst.count { it.pratica }
         val dias7 = u7.map { it.data }.toSet().size
+        val diasPratica7 = u7.filter { it.pratica }.map { it.data }.toSet().size
         val media7 = if (u7.isNotEmpty()) u7.sumOf { it.score } / u7.size else 0.0
-        val prog = minOf(praticas.toDouble() / PRATICAS_PARA_SUBIR, 1.0) * minOf(dias7.toDouble() / DIAS_PARA_SUBIR, 1.0) * minOf(media7 / MEDIA_PARA_SUBIR, 1.0)
-        val pode = e.nivel < NIVEL_MAX && praticas >= PRATICAS_PARA_SUBIR && dias7 >= DIAS_PARA_SUBIR && media7 >= MEDIA_PARA_SUBIR
-        return Metricas(praticas, dias7, r3(media7), Math.round(1000.0 * prog) / 10.0, pode)
+        val prog = minOf(diasPratica7.toDouble() / DIAS_PARA_SUBIR, 1.0) * minOf(media7 / MEDIA_PARA_SUBIR, 1.0)
+        val pode = e.nivel < NIVEL_MAX && diasPratica7 >= DIAS_PARA_SUBIR && media7 >= MEDIA_PARA_SUBIR
+        return Metricas(praticas, dias7, diasPratica7, r3(media7), Math.round(1000.0 * prog) / 10.0, pode)
     }
 
     /** Dias seguidos com check-in até hoje (ou ontem). Faltar um dia NÃO apaga o progresso do nível. */
@@ -67,23 +71,17 @@ object Consciencia {
         return n
     }
 
+    /** Registra o check-in do dia. NÃO sobe de nível sozinho: só sinaliza podeSubir; quem confirma é a pessoa (ajustarNivel). */
     fun checkin(e: Estado, reacao: Int, pausou: Boolean, pratica: Boolean, hoje: LocalDate = LocalDate.now(), nota: String = ""): Resposta {
         if (e.entradaNivel.isEmpty()) e.entradaNivel = hoje.toString()
         e.checkins = e.checkins.filter { it.data != hoje.toString() }.toMutableList()
         val sc = scoreDoDia(reacao, pausou, pratica)
         e.checkins.add(Checkin(hoje.toString(), reacao.coerceIn(1, 5), pausou, pratica, e.nivel, sc, nota.take(280)))
         if (e.checkins.size > 400) e.checkins = e.checkins.takeLast(400).toMutableList()
-        var m = metricas(e, hoje)
-        var subiu = false
-        if (m.podeSubir) {
-            e.nivel += 1
-            e.entradaNivel = hoje.plusDays(1).toString()      // o novo nível conta a partir de amanhã
-            subiu = true
-            m = metricas(e, hoje)
-        }
-        val msg = if (subiu) "Você subiu para o nível ${e.nivel} (${NIVEIS[e.nivel - 1].nome})."
+        val m = metricas(e, hoje)
+        val msg = if (m.podeSubir) "Suas práticas indicam que você pode avançar para o nível ${e.nivel + 1}. Confirme quando sentir que faz sentido."
         else if (e.nivel == NIVEL_MAX) "Nível máximo: mantenha a prática." else "Check-in registrado."
-        return Resposta(sc, subiu, e.nivel, m, msg)
+        return Resposta(sc, m.podeSubir, e.nivel, m, msg)
     }
 
     /** Autoavaliação: pode descer a qualquer nível; só sobe 1 por vez e só com as práticas em dia. */
@@ -96,6 +94,41 @@ object Consciencia {
         }
         e.nivel = novo
         e.entradaNivel = hoje.toString()
+    }
+
+    // ---- MODO FLOW: treina CONDIÇÕES de atenção engajada; não induz estado nenhum
+    val FLOW_CONDICOES = listOf(
+        "Uma tarefa só (a do seu portal de hoje).",
+        "Meta clara e curta (5 a 15 minutos).",
+        "Feedback imediato: no fim, você marca se fez ou não.",
+        "Pouca distração: silencie as notificações.",
+        "Atenção: use o cronômetro e volte ao foco quando se perceber disperso.",
+    )
+
+    fun focoDoNivel(n: Int): String = when (n.coerceIn(1, NIVEL_MAX)) {
+        1, 2 -> "Reduzir o automático e a dispersão: pare, nomeie o que sente e volte à tarefa."
+        3, 4 -> "Uma coisa só, com escolha: decida o que fará agora e deixe o resto de lado."
+        5, 6 -> "Responsabilidade e alinhamento na tarefa: faça a sua parte com clareza."
+        else -> "Ação clara a serviço, sem drama."
+    }
+
+    data class RespostaFlow(val registro: Flow, val mensagem: String)
+
+    /** boaAbsorcao = prática concluída + autoavaliação >= 4. Nunca afirma que "entrou em flow". */
+    fun registrarFlow(e: Estado, minutos: Int, praticaConcluida: Boolean, absorcao: Int, hoje: LocalDate = LocalDate.now(), tarefa: String = ""): RespostaFlow {
+        val ab = absorcao.coerceIn(1, 5)
+        val reg = Flow(hoje.toString(), e.nivel, minutos.coerceIn(1, 120), praticaConcluida, ab, tarefa.take(120), praticaConcluida && ab >= 4)
+        e.flows.add(reg)
+        if (e.flows.size > 200) e.flows = e.flows.takeLast(200).toMutableList()
+        return RespostaFlow(reg, if (reg.boaAbsorcao) "Sessão com boa absorção relatada." else "Sessão registrada.")
+    }
+
+    data class ResumoFlow(val sessoes: Int, val boaAbsorcao: Int, val minutos: Int)
+
+    fun resumoFlow(e: Estado, dias: Int = 30, hoje: LocalDate = LocalDate.now()): ResumoFlow {
+        val ini = hoje.minusDays((maxOf(1, dias) - 1).toLong()).toString()
+        val l = e.flows.filter { it.data >= ini }
+        return ResumoFlow(l.size, l.count { it.boaAbsorcao }, l.sumOf { it.minutos })
     }
 
     fun historico(e: Estado, dias: Int = 30, hoje: LocalDate = LocalDate.now()): List<Checkin> {
@@ -113,7 +146,14 @@ object Consciencia {
             lista.add(Checkin(c.getString("data"), c.getInt("reacao"), c.getBoolean("pausou"), c.getBoolean("pratica"),
                 c.getInt("nivel"), c.getDouble("score"), c.optString("nota", "")))
         }
-        Estado(o.optInt("nivel", 1).coerceIn(1, NIVEL_MAX), o.optString("entrada_nivel", ""), lista)
+        val fl = mutableListOf<Flow>()
+        val fa = o.optJSONArray("flows") ?: JSONArray()
+        for (i in 0 until fa.length()) {
+            val f = fa.getJSONObject(i)
+            fl.add(Flow(f.getString("data"), f.getInt("nivel"), f.getInt("minutos"), f.getBoolean("pratica"),
+                f.getInt("absorcao"), f.optString("tarefa", ""), f.getBoolean("boa_absorcao")))
+        }
+        Estado(o.optInt("nivel", 1).coerceIn(1, NIVEL_MAX), o.optString("entrada_nivel", ""), lista, fl)
     } catch (e: Exception) {
         Estado()
     }
@@ -122,7 +162,10 @@ object Consciencia {
         val a = JSONArray()
         for (c in e.checkins) a.put(JSONObject().put("data", c.data).put("reacao", c.reacao).put("pausou", c.pausou)
             .put("pratica", c.pratica).put("nivel", c.nivel).put("score", c.score).put("nota", c.nota))
-        val o = JSONObject().put("nivel", e.nivel).put("entrada_nivel", e.entradaNivel).put("checkins", a)
+        val fa = JSONArray()
+        for (f in e.flows) fa.put(JSONObject().put("data", f.data).put("nivel", f.nivel).put("minutos", f.minutos)
+            .put("pratica", f.pratica).put("absorcao", f.absorcao).put("tarefa", f.tarefa).put("boa_absorcao", f.boaAbsorcao))
+        val o = JSONObject().put("nivel", e.nivel).put("entrada_nivel", e.entradaNivel).put("checkins", a).put("flows", fa)
         val tmp = File(arq.path + ".tmp")
         tmp.writeText(o.toString(), Charsets.UTF_8)
         if (!tmp.renameTo(arq)) { arq.writeText(o.toString(), Charsets.UTF_8); tmp.delete() }

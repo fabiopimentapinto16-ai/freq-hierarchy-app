@@ -1,0 +1,65 @@
+[
+ {
+  "minutos": 10,
+  "pratica": true,
+  "absorcao": 5,
+  "minutos_reg": 10,
+  "absorcao_reg": 5,
+  "boa_absorcao": true,
+  "mensagem": "Sessão com boa absorção relatada."
+ },
+ {
+  "minutos": 10,
+  "pratica": true,
+  "absorcao": 4,
+  "minutos_reg": 10,
+  "absorcao_reg": 4,
+  "boa_absorcao": true,
+  "mensagem": "Sessão com boa absorção relatada."
+ },
+ {
+  "minutos": 10,
+  "pratica": true,
+  "absorcao": 3,
+  "minutos_reg": 10,
+  "absorcao_reg": 3,
+  "boa_absorcao": false,
+  "mensagem": "Sessão registrada."
+ },
+ {
+  "minutos": 10,
+  "pratica": false,
+  "absorcao": 5,
+  "minutos_reg": 10,
+  "absorcao_reg": 5,
+  "boa_absorcao": false,
+  "mensagem": "Sessão registrada."
+ },
+ {
+  "minutos": 5,
+  "pratica": false,
+  "absorcao": 1,
+  "minutos_reg": 5,
+  "absorcao_reg": 1,
+  "boa_absorcao": false,
+  "mensagem": "Sessão registrada."
+ },
+ {
+  "minutos": 200,
+  "pratica": true,
+  "absorcao": 9,
+  "minutos_reg": 120,
+  "absorcao_reg": 5,
+  "boa_absorcao": true,
+  "mensagem": "Sessão com boa absorção relatada."
+ },
+ {
+  "minutos": 0,
+  "pratica": true,
+  "absorcao": 0,
+  "minutos_reg": 1,
+  "absorcao_reg": 1,
+  "boa_absorcao": false,
+  "mensagem": "Sessão registrada."
+ }
+]

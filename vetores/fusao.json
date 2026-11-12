@@ -1,0 +1,258 @@
+{
+ "tipo_sinal": [
+  {
+   "mov": 0,
+   "resp": false,
+   "esperado": "quieto"
+  },
+  {
+   "mov": 0.2,
+   "resp": false,
+   "esperado": "quieto"
+  },
+  {
+   "mov": 0.4,
+   "resp": false,
+   "esperado": "movimento"
+  },
+  {
+   "mov": 0.2,
+   "resp": true,
+   "esperado": "respiracao"
+  },
+  {
+   "mov": 0.5,
+   "resp": true,
+   "esperado": "misto"
+  },
+  {
+   "mov": 0.35,
+   "resp": false,
+   "esperado": "movimento"
+  }
+ ],
+ "k8": [
+  {
+   "mov": 0.9,
+   "base": 0.1,
+   "imu": 0.0,
+   "esperado": 1.0
+  },
+  {
+   "mov": 0.3,
+   "base": 0.1,
+   "imu": 0.0,
+   "esperado": 0.0
+  },
+  {
+   "mov": 0.9,
+   "base": 0.1,
+   "imu": 0.6,
+   "esperado": null
+  },
+  {
+   "mov": 0.1,
+   "base": 0.1,
+   "imu": 0.2,
+   "esperado": 0.0
+  },
+  {
+   "mov": 1.0,
+   "base": 0.0,
+   "imu": 0.49,
+   "esperado": 1.0
+  }
+ ],
+ "f_locais": [
+  {
+   "cam_amp": 0.6,
+   "cam_conf": 0.9,
+   "imu": 0.0,
+   "rssi_desvio": 2.0,
+   "mov": 0.6,
+   "mov_base": 0.1,
+   "esperado": [
+    0.54,
+    0.0,
+    0.1333,
+    null,
+    0.5
+   ]
+  },
+  {
+   "cam_amp": 0.0,
+   "cam_conf": 0.9,
+   "imu": 0.0,
+   "rssi_desvio": 0.0,
+   "mov": 0.0,
+   "mov_base": 0.0,
+   "esperado": [
+    0.0,
+    0.0,
+    0.0,
+    null,
+    0.0
+   ]
+  },
+  {
+   "cam_amp": 0.8,
+   "cam_conf": 0.9,
+   "imu": 0.6,
+   "rssi_desvio": null,
+   "mov": 0.8,
+   "mov_base": 0.1,
+   "esperado": [
+    0.3744,
+    0.48,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "cam_amp": 0.5,
+   "cam_conf": 0.3,
+   "imu": 0.1,
+   "rssi_desvio": 9.0,
+   "mov": 0.5,
+   "mov_base": 0.5,
+   "esperado": [
+    0.138,
+    0.08,
+    0.4,
+    null,
+    0.0
+   ]
+  }
+ ],
+ "cor": [
+  {
+   "f": 0.5,
+   "status": "presenca",
+   "tipo": "respiracao",
+   "esperado": [
+    0,
+    188,
+    212,
+    147
+   ]
+  },
+  {
+   "f": 1.0,
+   "status": "presenca",
+   "tipo": "movimento",
+   "esperado": [
+    255,
+    167,
+    38,
+    255
+   ]
+  },
+  {
+   "f": 0.0,
+   "status": "vazio",
+   "tipo": "quieto",
+   "esperado": [
+    158,
+    158,
+    158,
+    38
+   ]
+  },
+  {
+   "f": 0.8,
+   "status": "anomalia",
+   "tipo": "misto",
+   "esperado": [
+    142,
+    36,
+    170,
+    212
+   ]
+  },
+  {
+   "f": 0.4,
+   "status": "movimento",
+   "tipo": "quieto",
+   "esperado": [
+    255,
+    213,
+    79,
+    125
+   ]
+  },
+  {
+   "f": 0.3,
+   "status": "presenca",
+   "tipo": "quieto",
+   "esperado": [
+    41,
+    121,
+    255,
+    103
+   ]
+  }
+ ],
+ "status": [
+  {
+   "status": "presenca",
+   "imu": 0.0,
+   "esperado": "presenca"
+  },
+  {
+   "status": "vazio",
+   "imu": 0.7,
+   "esperado": "movimento"
+  },
+  {
+   "status": "anomalia",
+   "imu": 0.9,
+   "esperado": "anomalia"
+  },
+  {
+   "status": "presenca",
+   "imu": 0.5,
+   "esperado": "movimento"
+  },
+  {
+   "status": "vazio",
+   "imu": 0.1,
+   "esperado": "vazio"
+  }
+ ],
+ "hierarquia_telefone": [
+  {
+   "f_locais": [
+    0.54,
+    0.0,
+    0.1333,
+    null,
+    0.5
+   ],
+   "f_final": 0.3353,
+   "status": "anomalia"
+  },
+  {
+   "f_locais": [
+    0.0,
+    0.0,
+    0.0,
+    null,
+    0.0
+   ],
+   "f_final": 0.0,
+   "status": "vazio"
+  },
+  {
+   "f_locais": [
+    0.2,
+    0.1,
+    null,
+    null,
+    0.9
+   ],
+   "f_final": 0.45,
+   "status": "anomalia"
+  }
+ ]
+}

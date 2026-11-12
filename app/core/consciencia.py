@@ -13,25 +13,27 @@ AVISO_CUIDADO = ("Não é terapia nem diagnóstico. Se estiver sofrendo muito, c
 
 NIVEIS = (
     (1, "Reação",          "Vive no automático; pouco registra emoção ou gatilho.",
-     "3 vezes ao dia, pare 10 segundos e nomeie: o que estou sentindo?"),
+     "3 vezes ao dia, pare 10 segundos e nomeie: o que estou sentindo?", "Portal da Pausa"),
     (2, "Percepção",       "Começa a notar a emoção e o gatilho depois do fato.",
-     "Diário de 1 linha: gatilho → emoção."),
+     "Diário de 1 linha: gatilho → emoção.", "Portal do Nomear"),
     (3, "Observação",      "Observa o padrão sem se fundir totalmente nele.",
-     "Pausa de 30 segundos antes de responder em um conflito."),
+     "Pausa de 30 segundos antes de responder em um conflito.", "Portal da Testemunha"),
     (4, "Escolha",         "Consegue escolher a resposta em vez de só reagir.",
-     "1 escolha consciente por dia (registre qual)."),
+     "1 escolha consciente por dia (registre qual).", "Portal da Escolha"),
     (5, "Responsabilidade", "Assume a parte que é sua; menos culpa só no externo.",
-     "Em 1 situação do dia, pergunte: o que é meu aqui?"),
+     "Em 1 situação do dia, pergunte: o que é meu aqui?", "Portal do Meu"),
     (6, "Coerência",       "Pensamento, fala e ação mais alinhados.",
-     "1 ato alinhado ao seu valor principal do dia."),
-    (7, "Clareza e serviço", "Mais estável; usa a consciência para o bem próprio e do outro.",
-     "1 ação útil e discreta por dia + revisão semanal."),
+     "1 ato alinhado ao seu valor principal do dia.", "Portal do Alinhar"),
+    (7, "Sabedoria",       "Mais estável; usa a consciência para o bem próprio e do outro.",
+     "1 ação útil e discreta por dia + revisão semanal (manutenção, não um fim).", "Portal do Serviço"),
 )
+AVISO_PORTAIS = "Portais são práticas de consciência, não magia de rede."
+AVISO_ATENCAO = "Atenção visual é treino. Não lemos pensamentos."
 NIVEL_MAX = 7
 
-PRATICAS_PARA_SUBIR = 7      # praticas cumpridas no nivel atual
-DIAS_PARA_SUBIR = 5          # dias com check-in nos ultimos 7
+DIAS_PARA_SUBIR = 5          # dias COM A PRATICA do nivel nos ultimos 7
 MEDIA_PARA_SUBIR = 0.6       # media do score diario nos ultimos 7 dias
+# Subir de nivel e SUGESTAO: o app so indica; quem confirma o avanco e a pessoa.
 
 
 @dataclass
@@ -50,21 +52,22 @@ class Estado:
     nivel: int = 1
     entrada_nivel: str = ""  # data em que entrou no nivel atual
     checkins: List[dict] = field(default_factory=list)
+    flows: List[dict] = field(default_factory=list)
 
     def to_dict(self):
         return asdict(self)
 
     @staticmethod
     def from_dict(d):
-        e = Estado(int(d.get("nivel", 1)), d.get("entrada_nivel", ""), list(d.get("checkins", [])))
+        e = Estado(int(d.get("nivel", 1)), d.get("entrada_nivel", ""), list(d.get("checkins", [])), list(d.get("flows", [])))
         e.nivel = max(1, min(NIVEL_MAX, e.nivel))
         return e
 
 
 def info_nivel(n: int):
     n = max(1, min(NIVEL_MAX, int(n)))
-    num, nome, desc, pratica = NIVEIS[n - 1]
-    return {"nivel": num, "nome": nome, "descricao": desc, "pratica": pratica}
+    num, nome, desc, pratica, portal = NIVEIS[n - 1]
+    return {"nivel": num, "nome": nome, "descricao": desc, "pratica": pratica, "portal": portal}
 
 
 def score_do_dia(reacao: int, pausou: bool, pratica: bool) -> float:
@@ -92,11 +95,12 @@ def metricas(e: Estado, hoje: Optional[date] = None) -> dict:
     u7 = _ultimos7(lst, hoje)
     praticas = sum(1 for c in lst if c["pratica"])
     dias7 = len({c["data"] for c in u7})
+    dias_pratica7 = len({c["data"] for c in u7 if c["pratica"]})
     media7 = sum(c["score"] for c in u7) / len(u7) if u7 else 0.0
-    prog = min(praticas / PRATICAS_PARA_SUBIR, 1.0) * min(dias7 / DIAS_PARA_SUBIR, 1.0) * min(media7 / MEDIA_PARA_SUBIR, 1.0)
-    return {"praticas": praticas, "dias7": dias7, "media7": round(media7, 3), "progresso": round(100 * prog, 1),
-            "pode_subir": e.nivel < NIVEL_MAX and praticas >= PRATICAS_PARA_SUBIR and dias7 >= DIAS_PARA_SUBIR
-            and media7 >= MEDIA_PARA_SUBIR}
+    prog = min(dias_pratica7 / DIAS_PARA_SUBIR, 1.0) * min(media7 / MEDIA_PARA_SUBIR, 1.0)
+    return {"praticas": praticas, "dias7": dias7, "dias_pratica7": dias_pratica7, "media7": round(media7, 3),
+            "progresso": round(100 * prog, 1),
+            "pode_subir": e.nivel < NIVEL_MAX and dias_pratica7 >= DIAS_PARA_SUBIR and media7 >= MEDIA_PARA_SUBIR}
 
 
 def sequencia(e: Estado, hoje: Optional[date] = None) -> int:
@@ -113,7 +117,8 @@ def sequencia(e: Estado, hoje: Optional[date] = None) -> int:
 
 
 def checkin(e: Estado, reacao: int, pausou: bool, pratica: bool, hoje: Optional[date] = None, nota: str = "") -> dict:
-    """Registra o check-in do dia (um por dia: refazer substitui). Sobe de nivel so se as praticas do nivel foram cumpridas."""
+    """Registra o check-in do dia (um por dia: refazer substitui). NAO sobe de nivel sozinho: so sinaliza `pode_subir`;
+    quem confirma o avanco e a pessoa (ajustar_nivel)."""
     hoje = hoje or date.today()
     if not e.entrada_nivel:
         e.entrada_nivel = hoje.isoformat()
@@ -123,15 +128,13 @@ def checkin(e: Estado, reacao: int, pausou: bool, pratica: bool, hoje: Optional[
     e.checkins.append(asdict(c))
     e.checkins = e.checkins[-400:]
     m = metricas(e, hoje)
-    subiu = False
     if m["pode_subir"]:
-        e.nivel += 1
-        e.entrada_nivel = (hoje + timedelta(days=1)).isoformat()     # o novo nivel conta a partir de amanha
-        subiu = True
-        m = metricas(e, hoje)
-    return {"score": c.score, "subiu": subiu, "nivel": e.nivel, "metricas": m,
-            "mensagem": ("Você subiu para o nível %d (%s)." % (e.nivel, NIVEIS[e.nivel - 1][1])) if subiu else
-                        ("Nível máximo: mantenha a prática." if e.nivel == NIVEL_MAX else "Check-in registrado.")}
+        msg = "Suas práticas indicam que você pode avançar para o nível %d. Confirme quando sentir que faz sentido." % (e.nivel + 1)
+    elif e.nivel == NIVEL_MAX:
+        msg = "Nível máximo: mantenha a prática."
+    else:
+        msg = "Check-in registrado."
+    return {"score": c.score, "pode_subir": m["pode_subir"], "nivel": e.nivel, "metricas": m, "mensagem": msg}
 
 
 def ajustar_nivel(e: Estado, novo: int, hoje: Optional[date] = None) -> Estado:
@@ -154,8 +157,9 @@ def ajustar_nivel(e: Estado, novo: int, hoje: Optional[date] = None) -> Estado:
 
 def caminho(e: Estado):
     """Lista do caminho ate o 7: concluido / atual / futuro."""
-    return [{"nivel": n, "nome": nome, "estado": "concluido" if n < e.nivel else "atual" if n == e.nivel else "futuro"}
-            for n, nome, _, _ in NIVEIS]
+    return [{"nivel": n, "nome": nome, "portal": portal,
+             "estado": "concluido" if n < e.nivel else "atual" if n == e.nivel else "futuro"}
+            for n, nome, _, _, portal in NIVEIS]
 
 
 def historico(e: Estado, dias: int = 30, hoje: Optional[date] = None):
@@ -173,6 +177,47 @@ def sugestao_pausa(tipo_sinal: str, pessoa_quieta: bool) -> Optional[str]:
 
 def pergunta_pos_sessao() -> str:
     return "Como você está por dentro agora?"
+
+
+# ---- MODO FLOW: treina CONDICOES de atencao engajada; nao induz estado nenhum
+FLOW_CONDICOES = (
+    "Uma tarefa só (a do seu portal de hoje).",
+    "Meta clara e curta (5 a 15 minutos).",
+    "Feedback imediato: no fim, você marca se fez ou não.",
+    "Pouca distração: silencie as notificações.",
+    "Atenção: use o cronômetro e volte ao foco quando se perceber disperso.",
+)
+
+
+def foco_do_nivel(n: int) -> str:
+    n = max(1, min(NIVEL_MAX, int(n)))
+    if n <= 2:
+        return "Reduzir o automático e a dispersão: pare, nomeie o que sente e volte à tarefa."
+    if n <= 4:
+        return "Uma coisa só, com escolha: decida o que fará agora e deixe o resto de lado."
+    if n <= 6:
+        return "Responsabilidade e alinhamento na tarefa: faça a sua parte com clareza."
+    return "Ação clara a serviço, sem drama."
+
+
+def registrar_flow(e: Estado, minutos: int, pratica_concluida: bool, absorcao: int,
+                   hoje: Optional[date] = None, tarefa: str = "") -> dict:
+    """Registra uma sessao. `boa_absorcao` = pratica concluida + autoavaliacao >= 4. Nunca afirma que 'entrou em flow'."""
+    hoje = hoje or date.today()
+    reg = {"data": hoje.isoformat(), "nivel": e.nivel, "minutos": max(1, min(120, int(minutos))),
+           "pratica": bool(pratica_concluida), "absorcao": max(1, min(5, int(absorcao))), "tarefa": str(tarefa)[:120]}
+    reg["boa_absorcao"] = reg["pratica"] and reg["absorcao"] >= 4
+    e.flows.append(reg)
+    e.flows = e.flows[-200:]
+    return {"registro": reg, "mensagem": "Sessão com boa absorção relatada." if reg["boa_absorcao"] else "Sessão registrada."}
+
+
+def resumo_flow(e: Estado, dias: int = 30, hoje: Optional[date] = None) -> dict:
+    hoje = hoje or date.today()
+    ini = (hoje - timedelta(days=max(1, dias) - 1)).isoformat()
+    lst = [f for f in e.flows if f["data"] >= ini]
+    return {"sessoes": len(lst), "boa_absorcao": sum(1 for f in lst if f["boa_absorcao"]),
+            "minutos": sum(f["minutos"] for f in lst)}
 
 
 # ---- persistencia local (so neste aparelho)

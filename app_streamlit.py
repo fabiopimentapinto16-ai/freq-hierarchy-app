@@ -47,11 +47,17 @@ with aba_con:
     est = C.carregar(ARQ)
     info = C.info_nivel(est.nivel)
     m = C.metricas(est)
-    st.subheader("Nível %d de 7: %s" % (info["nivel"], info["nome"]))
+    st.subheader("Nível %d de 7: %s — %s" % (info["nivel"], info["nome"], info["portal"]))
     st.write(info["descricao"])
     st.progress(min(1.0, m["progresso"] / 100.0), text="Progresso no nível: %.0f%%" % m["progresso"])
-    st.caption("Práticas cumpridas: %d/%d | dias com check-in (7d): %d/%d | média (7d): %.2f | sequência: %d dia(s)" % (
-        m["praticas"], C.PRATICAS_PARA_SUBIR, m["dias7"], C.DIAS_PARA_SUBIR, m["media7"], C.sequencia(est)))
+    st.caption("Dias com a prática (7d): %d/%d | dias com check-in (7d): %d | média (7d): %.2f | sequência: %d dia(s)" % (
+        m["dias_pratica7"], C.DIAS_PARA_SUBIR, m["dias7"], m["media7"], C.sequencia(est)))
+    if m["pode_subir"]:
+        st.success("Suas práticas indicam que você pode avançar para o nível %d. Quem confirma é você." % (est.nivel + 1))
+        if st.button("Confirmar avanço para o nível %d" % (est.nivel + 1)):
+            C.ajustar_nivel(est, est.nivel + 1)
+            C.salvar(est, ARQ)
+            st.rerun()
     st.info("Microprática do seu nível: " + info["pratica"])
     st.write("Caminho: " + "  >  ".join(("[%d %s]" % (x["nivel"], x["nome"])) if x["estado"] == "atual" else
                                        ("%d ok" % x["nivel"]) if x["estado"] == "concluido" else str(x["nivel"]) for x in C.caminho(est)))
@@ -65,7 +71,8 @@ with aba_con:
             res = C.checkin(est, re_, pa, pr, nota=nota)
             C.salvar(est, ARQ)
             st.success(res["mensagem"] + " (score do dia: %.2f)" % res["score"])
-            st.rerun() if res["subiu"] else None
+            if res["pode_subir"]:
+                st.rerun()
     with st.expander("Ajustar meu nível (autoavaliação)"):
         novo = st.number_input("Nível", 1, 7, est.nivel)
         if st.button("Confirmar nível"):
@@ -81,5 +88,6 @@ with aba_con:
         st.dataframe([{"data": x["data"], "nível": x["nivel"], "score": x["score"], "prática": "sim" if x["pratica"] else "não",
                        "nota": x.get("nota", "")} for x in reversed(h)], use_container_width=True)
     st.caption(C.AVISO)
+    st.caption(C.AVISO_PORTAIS)
     st.caption(C.AVISO_CUIDADO)
     st.caption("Seus dados ficam só neste aparelho (%s). Nada é enviado." % ARQ)

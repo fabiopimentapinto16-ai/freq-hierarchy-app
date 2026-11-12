@@ -14,15 +14,15 @@ def forca(amplitude: float, confianca: float) -> float:
     return _clip(_clip(amplitude) * _clip(confianca))
 
 
-def integrar(f_locais: Sequence[Optional[float]], simulado: bool = False) -> ResultadoHierarquia:
+def integrar(f_locais: Sequence[Optional[float]], simulado: bool = False, niveis=NIVEIS_FREQ) -> ResultadoHierarquia:
     """f_locais: 5 valores (N1..N5). None = nivel sem sensor (nao inventamos: repete o anterior e marca indisponivel).
 
     F_integrada = w_proprio * F_local + w_heranca * F_anterior;  F_anterior < 0.15 corta a heranca.
     K8 (ultimo nivel): se F_local < 0.35, F_integrada = F_anterior (nao puxa a presenca para baixo)."""
-    if len(f_locais) != len(NIVEIS_FREQ):
-        raise ValueError("preciso de %d valores (N1..N5)" % len(NIVEIS_FREQ))
+    if len(f_locais) != len(niveis):
+        raise ValueError("preciso de %d valores (N1..N5)" % len(niveis))
     res, prev = [], 0.0
-    for i, (cfg, fl) in enumerate(zip(NIVEIS_FREQ, f_locais)):
+    for i, (cfg, fl) in enumerate(zip(niveis, f_locais)):
         disp = fl is not None
         fl_c = _clip(fl) if disp else None
         herdou = False

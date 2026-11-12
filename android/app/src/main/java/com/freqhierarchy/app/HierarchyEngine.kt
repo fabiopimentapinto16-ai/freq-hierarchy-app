@@ -8,6 +8,11 @@ object Pesos {
     const val DIF_ANOMALIA = 0.40
     const val PORTA_CSI = 5005
     const val LIM_TIPO_RAPIDO = 0.35
+    const val LIM_IMU_APARELHO = 0.5
+    const val K8_SALTO_MIN = 0.2
+    const val K8_SALTO_ESCALA = 0.6
+    const val RSSI_ESCALA_DB = 6.0
+    const val CONF_RSSI = 0.4
 
     data class Nivel(val id: String, val nome: String, val wProprio: Double, val wHeranca: Double, val hex: String)
 
@@ -16,6 +21,15 @@ object Pesos {
         Nivel("N2", "CSI 5.0 GHz", 0.60, 0.40, "#00BCD4"),
         Nivel("N3", "Micro-ondas", 0.55, 0.45, "#43A047"),
         Nivel("N4", "Infravermelho", 0.55, 0.45, "#E53935"),
+        Nivel("N5", "K8 Anomalia", 0.50, 0.50, "#8E24AA"),
+    )
+
+    /** Modo TELEFONE PURO (sem CSI): mesmos pesos, outras fontes. Tudo ESTIMADO. Espelha NIVEIS_TELEFONE do Python. */
+    val NIVEIS_TELEFONE = listOf(
+        Nivel("N1", "Câmera (movimento óptico)", 1.00, 0.00, "#2979FF"),
+        Nivel("N2", "IMU (movimento do aparelho)", 0.60, 0.40, "#00BCD4"),
+        Nivel("N3", "Wi-Fi RSSI (contexto)", 0.55, 0.45, "#43A047"),
+        Nivel("N4", "Áudio ambiente", 0.55, 0.45, "#E53935"),
         Nivel("N5", "K8 Anomalia", 0.50, 0.50, "#8E24AA"),
     )
 }
@@ -35,11 +49,11 @@ object HierarchyEngine {
     fun forca(amplitude: Double, confianca: Double) = clip(clip(amplitude) * clip(confianca))
 
     /** fLocais: 5 valores (N1..N5). null = nível sem sensor: não inventamos, repete o anterior e marca indisponível. */
-    fun integrar(fLocais: List<Double?>, simulado: Boolean = false): Resultado {
-        require(fLocais.size == Pesos.NIVEIS.size) { "preciso de 5 valores (N1..N5)" }
+    fun integrar(fLocais: List<Double?>, simulado: Boolean = false, niveis: List<Pesos.Nivel> = Pesos.NIVEIS): Resultado {
+        require(fLocais.size == niveis.size) { "preciso de 5 valores (N1..N5)" }
         val res = ArrayList<NivelResultado>()
         var prev = 0.0
-        for ((i, cfg) in Pesos.NIVEIS.withIndex()) {
+        for ((i, cfg) in niveis.withIndex()) {
             val fl = fLocais[i]
             val disp = fl != null
             val flC = fl?.let { clip(it) }
