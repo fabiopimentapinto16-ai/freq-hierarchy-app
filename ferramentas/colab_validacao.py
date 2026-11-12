@@ -9,7 +9,7 @@ COMO USAR (celula do Colab):
 O que ele faz:
   A) Sinais SINTETICOS: taxa de falso alarme (ruido puro) e de acerto (respiracao/pulso com ruido) para o limite RAZAO_MIN.
   B) Seus VIDEOS do celular (grave 30-60 s com o celular apoiado, boa luz, pessoa parada diante da camera):
-     o script pede o upload. Nomeie com uma etiqueta: *_resp.mp4 (pessoa parada respirando), *_vazio.mp4 (sem ninguem),
+     arraste-os para a barra Arquivos do Colab (pasta /content). Nomeie com uma etiqueta: *_resp.mp4 (pessoa parada respirando), *_vazio.mp4 (sem ninguem),
      *_mov.mp4 (pessoa se mexendo). Sem etiqueta ele so mostra os numeros.
   C) Sugere um RAZAO_MIN a partir dos seus videos (acima do maior *_vazio e abaixo do menor *_resp).
 
@@ -132,18 +132,26 @@ def grafico_video(nome, r):
     plt.show() if "google.colab" in sys.modules else plt.close(fig)
 
 
+def achar_videos():
+    """Procura videos em VIDEO_DIR, /content/videos e /content (onde o Colab guarda o que voce arrasta para a barra Arquivos)."""
+    pastas = [d for d in (VIDEO_DIR, "/content/videos", "/content") if d and os.path.isdir(d)]
+    achados = []
+    for d in pastas:
+        for e in ("*.mp4", "*.mov", "*.webm", "*.mkv", "*.MP4", "*.MOV"):
+            achados += glob.glob(os.path.join(d, e))
+    return sorted(set(achados))
+
+
 def parte_b():
     print("\n" + "=" * 70, "\nB) SEUS VIDEOS\n" + "=" * 70, sep="")
-    if VIDEO_DIR:
-        arqs = sorted(sum((glob.glob(os.path.join(VIDEO_DIR, e)) for e in ("*.mp4", "*.mov", "*.webm", "*.mkv")), []))
-    else:
-        try:
-            from google.colab import files
-            print("Selecione 1 ou mais videos (nomes terminando em _resp, _vazio ou _mov).")
-            arqs = list(files.upload().keys())
-        except Exception:
-            print("Fora do Colab e sem VIDEO_DIR: pulando a parte B.")
-            return {}
+    arqs = achar_videos()
+    if not arqs:
+        print("Nenhum video encontrado. Faca assim (o upload por botao falha com %run no Colab):\n"
+              "  1) Clique no icone de PASTA na barra da esquerda (Arquivos).\n"
+              "  2) Arraste os videos para dentro de /content (nomes terminando em _resp, _vazio ou _mov).\n"
+              "  3) Rode esta celula de novo.")
+        return {}
+    print("Videos encontrados: %s" % ", ".join(os.path.basename(a) for a in arqs))
     res = {}
     for a in arqs:
         r = analisar_video(a)
